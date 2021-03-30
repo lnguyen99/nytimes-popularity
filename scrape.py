@@ -18,7 +18,7 @@ print(name)
 articles = fetch_articles_by_month(api, dt.date(int(year), int(month), 1))
 article_df = articles_to_df(articles)
 
-article_df.drop(['_id', 'snippet', 'print_section', 'print_page', 'source', 'multimedia',
+article_df.drop(['snippet', 'print_section', 'print_page', 'source', 'multimedia',
        'uri', 'html', 'text', 'headline.kicker', 'headline.content_kicker',
        'headline.print_headline', 'headline.name', 'headline.seo',
        'headline.sub', 'byline.original', 'byline.person',
