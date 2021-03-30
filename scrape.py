@@ -22,6 +22,6 @@ article_df.drop(['snippet', 'print_section', 'print_page', 'source', 'multimedia
        'uri', 'html', 'text', 'headline.kicker', 'headline.content_kicker',
        'headline.print_headline', 'headline.name', 'headline.seo',
        'headline.sub', 'byline.original', 'byline.person',
-       'byline.organization', 'subsection_name'], axis=1, inplace=True)
+       'byline.organization'], axis=1, inplace=True)
 
 article_df.to_csv(name)
