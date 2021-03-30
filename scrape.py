@@ -21,7 +21,7 @@ article_df = articles_to_df(articles)
 article_df.drop(['snippet', 'print_section', 'print_page', 'source', 'multimedia',
        'uri', 'html', 'text', 'headline.kicker', 'headline.content_kicker',
        'headline.print_headline', 'headline.name', 'headline.seo',
-       'headline.sub', 'byline.original', 'byline.person',
+       'headline.sub', 'byline.person',
        'byline.organization'], axis=1, inplace=True)
 
 article_df.to_csv(name)
