@@ -15,6 +15,8 @@ import sklearn.neighbors
 import sklearn.ensemble
 import sklearn.metrics as metrics
 from sklearn.feature_extraction.text import HashingVectorizer, TfidfVectorizer, CountVectorizer
+from sklearn.manifold import TSNE
+from mlxtend.plotting import plot_decision_regions
 
 import nltk
 from nltk.tokenize import word_tokenize
@@ -31,7 +33,6 @@ def get_popular_words(corpus, top_n):
     feature_array = vectorizer.get_feature_names()
     top_words = sorted(list(zip(vectorizer.get_feature_names(), X.sum(0).getA1())), key=lambda x: x[1], reverse=True)[:top_n]
     result = [x[0] for x in top_words]
-    print(top_words)
     return result
 
 
@@ -108,10 +109,11 @@ def base_optimize_DT(X_train, y_train):
     k = 10
 
     # Hyperparameters to tune:
-    params = {'min_samples_split': [2, 5, 10],
-             'criterion': ['gini', 'entropy'],
-              'max_depth': [5, 10, 20],
-              'min_samples_leaf': [1, 2, 5, 10]
+    params = {
+                'min_samples_split': [2, 5, 10],
+                'criterion': ['gini', 'entropy'],
+                'max_depth': [5, 10, 20],
+                'min_samples_leaf': [1, 2, 5, 10]
              }
     
     # Initialize GridSearchCV object with decision tree classifier and hyperparameters
@@ -134,18 +136,46 @@ def base_optimize_DT(X_train, y_train):
 
 
 def base_optimize_KNN(X_train, y_train):
+    ## Choose optimal k neighbors  
     # Cross-validation folds
-    k = 10
+    neighbors = []                                                              # Empty list to store neighbors
+    cv_scores = []                                                              # Empty list to store scores
+
+    # Perform 10-fold cross validation with K=5 for KNN (the n_neighbors parameter)
+    for k in range(1, 51, 2):                                                   # Range of K we want to try
+        neighbors.append(k) 
+        knn = sklearn.neighbors.KNeighborsClassifier(n_neighbors = k)           # k = 5 for KNeighborsClassifier
+        scores = sklearn.model_selection.cross_val_score( 
+            knn, X_train, y_train, cv = 10, scoring = 'accuracy') 
+        cv_scores.append(scores.mean()) 
+
+    # Misclassification error versus k
+    MSE = [1-x for x in cv_scores]                                               # Changing to misclassification error
+
+    # Determining the best k value
+    optimal_k = neighbors[MSE.index(min(MSE))]
+    print('The optimal number of K neighbors = %d ' %optimal_k)
+
+    # Plot misclassification error versus k
+    plt.figure(figsize = (10,6))
+    plt.plot(neighbors, MSE)
+    plt.xlabel('Number of K neighbors')
+    plt.ylabel('Misclassification Error')
+    plt.show()
+    plt.savefig('k_neighbors.png')
+    plt.clf()
 
     # Hyperparameters to tune:
-    params = {'n_neighbors': [3, 5, 8, 10, 15],
+    params = {
+                'n_neighbors': [19], 
+                'algorithm' : ['auto', 'ball_tree', 'kd_tree', 'brute'],
                 'weights': ['uniform', 'distance'],
              }
     
-    # Initialize GridSearchCV object with decision tree classifier and hyperparameters
+    # Initialize GridSearchCV object 
     grid_tree = sklearn.model_selection.GridSearchCV(estimator=sklearn.neighbors.KNeighborsClassifier(),
                              param_grid=params,
-                             cv=k,
+                             cv=10,
                              return_train_score=True,
                              scoring='accuracy',
                              refit='accuracy') 
@@ -171,7 +201,7 @@ def base_optimize_XGBM(X_train, y_train):
               'max_depth': [5, 10, 20],
              }
     
-    # Initialize GridSearchCV object with decision tree classifier and hyperparameters
+    # Initialize GridSearchCV object
     grid_tree = sklearn.model_selection.GridSearchCV(estimator=xgb.XGBClassifier(),
                              param_grid=params,
                              cv=k,
@@ -191,7 +221,6 @@ def base_optimize_XGBM(X_train, y_train):
 
 
 ### PREPROCESSING [ALL TEXT]
-
 n_top = 150
 text_column_to_change = 'all_text'
 
@@ -211,34 +240,42 @@ X_test = ts.drop(['is_popular', 'word_count'], axis=1)
 
 ### MODEL TRAINING
 
-# OPTIMIZE MODEL
-dt = base_optimize_DT(X_train, y_train)
-knn = base_optimize_KNN(X_train, y_train)
-boost = base_optimize_XGBM(X_train, y_train)
+# ## OPTIMIZE SHALLOW MODELS
+# base_optimize_DT(X_train, y_train)
+# base_optimize_KNN(X_train, y_train)
+# base_optimize_XGBM(X_train, y_train)
 
-# PREDICTING WITH DECISION TREE
-# sklearn.tree.DecisionTreeClassifier(criterion='entropy', max_depth=10, min_samples_leaf=10, min_samples_split=2)
-dt.fit(X_train, y_train)
-y_test_pred = dt.predict(X_test)
-dt_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
-print(f"Decision Tree's test accuracy is {dt_accuracy}")
 
-# PREDICTING WITH KNN
-# sklearn.neighbors.KNeighborsClassifier(n_neighbors=15, weights='distance')
-knn.fit(X_train, y_train)
-y_test_pred = knn.predict(X_test)
-knn_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
-print(f"KNN's test accuracy is {knn_accuracy}")
+# # PREDICTING WITH DECISION TREE
+# dt = sklearn.tree.DecisionTreeClassifier(criterion='entropy', max_depth=10, min_samples_leaf=10, min_samples_split=2)
+# dt.fit(X_train, y_train)
+# y_test_pred = dt.predict(X_test)
+# dt_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
+# print(f"Decision Tree's test accuracy is {dt_accuracy}")
+# # Decision Tree's test accuracy is 0.6648310387984981
 
-# PREDICTING WITH XGBoost
-boost.fit(X_train, y_train)
-y_test_pred = boost.predict(X_test)
-boost_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
-print(f"XGBoost's test accuracy is {boost_accuracy}")
+
+# # PREDICTING WITH KNN
+# knn = sklearn.neighbors.KNeighborsClassifier(n_neighbors=19, weights='distance', algorithm='kd_tree')
+# knn.fit(X_train, y_train)
+# y_test_pred = knn.predict(X_test)
+# knn_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
+# print(f"KNN's test accuracy is {knn_accuracy}")
+# # KNN's test accuracy is 0.6868585732165207
+
+
+# # PREDICTING WITH XGBoost
+# boost = xgb.XGBClassifier(booster='gbtree', max_depth=10, n_estimators=25, use_label_encoder=False)
+# boost.fit(X_train, y_train)
+# y_test_pred = boost.predict(X_test)
+# boost_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
+# print(f"XGBoost's test accuracy is {boost_accuracy}")
+# # XGBoost's test accuracy is 0.7121401752190237
+
 
 # PREDICTING WITH FNN
 fnn = ks.models.Sequential()
-fnn.add(ks.layers.Flatten(input_shape=[shape]))
+fnn.add(ks.layers.Flatten(input_shape=[X_train.shape]))
 fnn.add(ks.layers.Dense(64, activation="relu"))
 fnn.add(ks.layers.Dense(32, activation="relu"))
 fnn.add(ks.layers.Dense(16, activation="relu"))
@@ -251,30 +288,43 @@ test_predictions = np.argmax(fnn.predict(X_test), axis=1)
 fnn_accuracy = sklearn.metrics.accuracy_score(y_test, test_predictions)
 print(f"FNN's test accuracy is {fnn_accuracy}")
 
-# Show feature importance 
-xgb.plot_importance(xg_reg)
-plt.rcParams['figure.figsize'] = [5, 5]
-plt.show()
-plt.savefig('feature_importance.png')
-plt.clf()
 
-# Show DT 
-tree.plot_tree(dt);
-plt.savefig('dt_tree.png')
-plt.clf()
+# ## MODEL ANALYSIS 
 
-# Show xgb tree
-xgb.plot_tree(xg_reg,num_trees=0)
-plt.rcParams['figure.figsize'] = [50, 10]
-plt.show()
-plt.savefig('xgb_tree.png')
-plt.clf()
+# # Plotting KNN decision region
+# clf = sklearn.neighbors.KNeighborsClassifier(n_neighbors=19)
+# X_train2 = TSNE(n_components = 2).fit_transform(X_train)
+# clf.fit(X_train2, y_train)
+# plot_decision_regions(X_train2, y_train.values, clf=clf, legend=2)
+# # Adding axes annotations
+# plt.xlabel('X')
+# plt.ylabel('Y')
+# plt.title('KNN with K = 19')
+# plt.show()
+# plt.savefig('knn_surface.png')
+# plt.clf()
+
+# # Show feature importance 
+# xgb.plot_importance(boost, max_num_features=10)
+# plt.show()
+# plt.savefig('feature_importance.png')
+# plt.clf()
+
+# # Show xgb tree
+# xgb.plot_tree(boost)
+# plt.rcParams['figure.figsize'] = [50, 10]
+# plt.show()
+# plt.savefig('xgb_tree.png')
+# plt.clf()
+
 
 # Show FNN model 
-plot_model(fnn, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
-plt.savefig('fnn_model.png')
-plt.clf()
+plot_model(fnn, to_file='fnn_model.png', show_shapes=True, show_layer_names=True)
 
-## change the knn optimize 
-## add knn decision surface 
-## add confusion matrix
+# Based on the test values generate the confusion matrix 
+# Summary of the predictions made by the classifier
+mat = sklearn.metrics.confusion_matrix(y_test, test_predictions) 
+sns.heatmap(mat.T, square=True, annot=True, fmt='d', cbar=False) 
+plt.title('Confusion Matrix')
+plt.xlabel('true class') 
+plt.ylabel('predicted class')
