@@ -240,42 +240,39 @@ X_test = ts.drop(['is_popular', 'word_count'], axis=1)
 
 ### MODEL TRAINING
 
-# ## OPTIMIZE SHALLOW MODELS
-# base_optimize_DT(X_train, y_train)
-# base_optimize_KNN(X_train, y_train)
-# base_optimize_XGBM(X_train, y_train)
+## OPTIMIZE SHALLOW MODELS
+base_optimize_DT(X_train, y_train)
+base_optimize_KNN(X_train, y_train)
+base_optimize_XGBM(X_train, y_train)
 
 
-# # PREDICTING WITH DECISION TREE
-# dt = sklearn.tree.DecisionTreeClassifier(criterion='entropy', max_depth=10, min_samples_leaf=10, min_samples_split=2)
-# dt.fit(X_train, y_train)
-# y_test_pred = dt.predict(X_test)
-# dt_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
-# print(f"Decision Tree's test accuracy is {dt_accuracy}")
-# # Decision Tree's test accuracy is 0.6648310387984981
+# PREDICTING WITH DECISION TREE
+tree = sklearn.tree.DecisionTreeClassifier(criterion='entropy', max_depth=10, min_samples_leaf=10, min_samples_split=2)
+tree.fit(X_train, y_train)
+y_test_pred = tree.predict(X_test)
+dt_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
+print(f"Decision Tree's test accuracy is {dt_accuracy}")
 
 
-# # PREDICTING WITH KNN
-# knn = sklearn.neighbors.KNeighborsClassifier(n_neighbors=19, weights='distance', algorithm='kd_tree')
-# knn.fit(X_train, y_train)
-# y_test_pred = knn.predict(X_test)
-# knn_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
-# print(f"KNN's test accuracy is {knn_accuracy}")
-# # KNN's test accuracy is 0.6868585732165207
+# PREDICTING WITH KNN
+knn = sklearn.neighbors.KNeighborsClassifier(n_neighbors=19, weights='distance', algorithm='kd_tree')
+knn.fit(X_train, y_train)
+y_test_pred = knn.predict(X_test)
+knn_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
+print(f"KNN's test accuracy is {knn_accuracy}")
 
 
-# # PREDICTING WITH XGBoost
-# boost = xgb.XGBClassifier(booster='gbtree', max_depth=10, n_estimators=25, use_label_encoder=False)
-# boost.fit(X_train, y_train)
-# y_test_pred = boost.predict(X_test)
-# boost_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
-# print(f"XGBoost's test accuracy is {boost_accuracy}")
-# # XGBoost's test accuracy is 0.7121401752190237
+# PREDICTING WITH XGBoost
+boost = xgb.XGBClassifier(booster='gbtree', max_depth=10, n_estimators=25, use_label_encoder=False)
+boost.fit(X_train, y_train)
+y_test_pred = boost.predict(X_test)
+boost_accuracy = sklearn.metrics.accuracy_score(y_test, y_test_pred)
+print(f"XGBoost's test accuracy is {boost_accuracy}")
 
 
 # PREDICTING WITH FNN
 fnn = ks.models.Sequential()
-fnn.add(ks.layers.Flatten(input_shape=[X_train.shape]))
+fnn.add(ks.layers.Flatten(input_shape=[X_train.shape[1]]))
 fnn.add(ks.layers.Dense(64, activation="relu"))
 fnn.add(ks.layers.Dense(32, activation="relu"))
 fnn.add(ks.layers.Dense(16, activation="relu"))
@@ -283,48 +280,64 @@ fnn.add(ks.layers.Dense(8, activation="relu"))
 fnn.add(ks.layers.Dense(2, activation="softmax"))
 
 fnn.compile(loss="sparse_categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
-fnn.fit(X_train, y_train, batch_size=128, epochs=30, validation_split=0.1)
+fnn.fit(X_train, y_train, batch_size=50, epochs=20, validation_split=0.15)
+
 test_predictions = np.argmax(fnn.predict(X_test), axis=1)
 fnn_accuracy = sklearn.metrics.accuracy_score(y_test, test_predictions)
 print(f"FNN's test accuracy is {fnn_accuracy}")
 
 
-# ## MODEL ANALYSIS 
+## MODEL ANALYSIS 
 
-# # Plotting KNN decision region
-# clf = sklearn.neighbors.KNeighborsClassifier(n_neighbors=19)
-# X_train2 = TSNE(n_components = 2).fit_transform(X_train)
-# clf.fit(X_train2, y_train)
-# plot_decision_regions(X_train2, y_train.values, clf=clf, legend=2)
-# # Adding axes annotations
-# plt.xlabel('X')
-# plt.ylabel('Y')
-# plt.title('KNN with K = 19')
-# plt.show()
-# plt.savefig('knn_surface.png')
-# plt.clf()
-
-# # Show feature importance 
-# xgb.plot_importance(boost, max_num_features=10)
-# plt.show()
-# plt.savefig('feature_importance.png')
-# plt.clf()
-
-# # Show xgb tree
-# xgb.plot_tree(boost)
-# plt.rcParams['figure.figsize'] = [50, 10]
-# plt.show()
-# plt.savefig('xgb_tree.png')
-# plt.clf()
+# Feature importance of Decision Tree 
+feat_importances = pd.Series(tree.feature_importances_, index=X_train.columns).nlargest(10)
+feat_importances.sort_values(ascending=True)
+feat_importances.plot(kind='barh')
+plt.ylabel('Features')
+plt.title("Decision Tree's Feature Importance")
+plt.show()
+plt.savefig('dt_feature_importance.png')
+plt.clf()
 
 
-# Show FNN model 
-plot_model(fnn, to_file='fnn_model.png', show_shapes=True, show_layer_names=True)
+# Plotting KNN decision region
+clf = sklearn.neighbors.KNeighborsClassifier(n_neighbors=19)
+X_train2 = TSNE(n_components = 2).fit_transform(X_train)
+clf.fit(X_train2, y_train)
+plot_decision_regions(X_train2, y_train.values, clf=clf, legend=2)
+# Adding axes annotations
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.title('KNN with K = 19')
+plt.show()
+plt.savefig('knn_surface.png')
+plt.clf()
 
-# Based on the test values generate the confusion matrix 
-# Summary of the predictions made by the classifier
+
+# Show feature importance 
+xgb.plot_importance(boost, max_num_features=10)
+plt.title("XGBoost Classifier's Feature Importance")
+plt.show()
+plt.savefig('feature_importance.png')
+plt.clf()
+
+
+Based on the test values generate the confusion matrix 
+Summary of the predictions made by the classifier
 mat = sklearn.metrics.confusion_matrix(y_test, test_predictions) 
 sns.heatmap(mat.T, square=True, annot=True, fmt='d', cbar=False) 
-plt.title('Confusion Matrix')
+plt.title("FNN's Confusion Matrix")
 plt.xlabel('true class') 
 plt.ylabel('predicted class')
+plt.show()
+plt.savefig('fnn_confusion_matrix.png')
+plt.clf()
+
+
+# Decision Tree's test accuracy is 0.6648310387984981
+# KNN's test accuracy is 0.6868585732165207
+# XGBoost's test accuracy is 0.7121401752190237
+# FNN's test accuracy is 0.7531914893617021
+# 218/218 [==============================] - 0s 1ms/step - loss: 0.3657 - accuracy: 0.8325 - val_loss: 0.5921 - val_accuracy: 0.7410
+
+
